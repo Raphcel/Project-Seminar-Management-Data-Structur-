@@ -185,10 +185,18 @@ public:
     }
 };
 
+// Tambahkan struct untuk pertanyaan
+typedef struct Question {
+    string name;
+    string question;
+    Question() {}
+    Question(const string& n, const string& q) : name(n), question(q) {}
+} Question;
+
 // Struktur Data untuk Sistem Manajemen Seminar
 class SeminarManager {
 private:
-    Queue<string> questionQueue;
+    Queue<Question> questionQueue;
     vector<pair<string, string>> answeredQuestions;
     vector<Participant> participants;
     Stack<pair<string, string>> history; // Stack untuk undo topik/jadwal
@@ -244,10 +252,9 @@ private:
             cerr << "Error: Tidak dapat membuka " << questionQueueFile << " untuk penulisan." << endl;
             return;
         }
-        vector<string> temp = questionQueue.getAllElements(); // Mendapatkan elemen dari depan ke belakang
-        for (const auto& questioner : temp) {
-            // CSV Dasar: mengasumsikan nama penanya tidak mengandung koma atau baris baru
-            ofs << questioner << "\n";
+        vector<Question> temp = questionQueue.getAllElements();
+        for (const auto& q : temp) {
+            ofs << q.name << "," << q.question << "\n";
         }
         ofs.close();
     }
@@ -325,12 +332,17 @@ private:
 
     void loadQuestionQueueFromFile() {
         ifstream ifs(questionQueueFile);
-        if (!ifs) { /* cerr << "Info: " << questionQueueFile << " tidak ditemukan. Memulai dari awal." << endl; */ return; }
+        if (!ifs) { return; }
         while (!questionQueue.isEmpty()) questionQueue.dequeue();
         string line;
         while (getline(ifs, line)) {
-            if (!line.empty()) { // Nama penanya adalah seluruh baris
-                questionQueue.enqueue(line);
+            if (!line.empty()) {
+                size_t comma_pos = line.find(',');
+                if (comma_pos != string::npos) {
+                    string name = line.substr(0, comma_pos);
+                    string question = line.substr(comma_pos + 1);
+                    questionQueue.enqueue(Question(name, question));
+                }
             }
         }
         ifs.close();
@@ -391,8 +403,8 @@ public:
     }
 
 
-    void askQuestion(string name) {
-        questionQueue.enqueue(name);
+    void askQuestion(const string& name, const string& question) {
+        questionQueue.enqueue(Question(name, question));
         saveAllDataToCsvFiles();
         cout << name << " telah menambahkan pertanyaan ke dalam antrian.\n";
     }
@@ -402,7 +414,7 @@ public:
             cout << "Tidak ada pertanyaan dalam antrian.\n";
             return;
         }
-        string questioner = questionQueue.peek();
+        string questioner = questionQueue.peek().name;
         questionQueue.dequeue(); // Dequeue terlebih dahulu
 
         string answer;
@@ -557,7 +569,7 @@ public:
     }
 
     void deleteQuestionFromQueue(int idx) { // idx berbasis 1 dari depan
-        vector<string> temp = questionQueue.getAllElements(); // dari depan ke belakang
+        vector<Question> temp = questionQueue.getAllElements(); // dari depan ke belakang
         if (idx < 1 || idx > static_cast<int>(temp.size())) {
             cout << "Indeks tidak valid.\n";
             return;
@@ -571,13 +583,13 @@ public:
         cout << "Pertanyaan dalam antrian berhasil dihapus.\n";
     }
 
-    void updateQuestionInQueue(int idx, const string& newName) { // idx berbasis 1 dari depan
-        vector<string> temp = questionQueue.getAllElements(); // dari depan ke belakang
+    void updateQuestionInQueue(int idx, const string& newName, const string& newQuestion) { // idx berbasis 1 dari depan
+        vector<Question> temp = questionQueue.getAllElements(); // dari depan ke belakang
         if (idx < 1 || idx > static_cast<int>(temp.size())) {
             cout << "Indeks tidak valid.\n";
             return;
         }
-        temp[idx - 1] = newName;
+        temp[idx - 1] = Question(newName, newQuestion);
 
         // Bangun ulang queue
         while (!questionQueue.isEmpty()) questionQueue.dequeue();
@@ -587,7 +599,7 @@ public:
     }
 
     const Stack<pair<string, string>>& getHistory() const { return history; }
-    const Queue<string>& getQuestionQueue() const { return questionQueue; }
+    const Queue<Question>& getQuestionQueue() const { return questionQueue; }
     const vector<Participant>& getParticipants() const { return participants; }
     const vector<pair<string, string>>& getAnsweredQuestions() const { return answeredQuestions; } // <-- FUNGSI YANG DIPERBAIKI/DITAMBAHKAN
 };
@@ -789,14 +801,42 @@ int main() {
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
                 if (sub == 1) {
-                    string name;
+                    if (manager.getParticipants().empty()) {
+                        cout << "Belum ada peserta yang terdaftar. Tidak dapat menambah pertanyaan.\n";
+                        continue;
+                    }
+                    cout << "\nDaftar Peserta Terdaftar:\n";
+                    for (size_t i = 0; i < manager.getParticipants().size(); ++i) {
+                        cout << i + 1 << ". " << manager.getParticipants()[i].name << endl;
+                    }
+                    string name, question;
                     do {
                         cout << "Masukkan nama peserta yang ingin bertanya: ";
                         getline(cin, name);
                         if (name.empty()) cout << "Nama tidak boleh kosong!\n";
                     } while (name.empty());
-                    manager.askQuestion(name);
+                    do {
+                        cout << "Masukkan kalimat pertanyaan: ";
+                        getline(cin, question);
+                        if (question.empty()) cout << "Pertanyaan tidak boleh kosong!\n";
+                    } while (question.empty());
+                    manager.askQuestion(name, question);
                 } else if (sub == 2) {
+                    if (manager.getQuestionQueue().isEmpty()) {
+                        cout << "Tidak ada pertanyaan dalam antrian.\n";
+                        continue;
+                    }
+                    cout << "\nDaftar Peserta Terdaftar:\n";
+                    for (size_t i = 0; i < manager.getParticipants().size(); ++i) {
+                        cout << i + 1 << ". " << manager.getParticipants()[i].name << endl;
+                    }
+                    // Tampilkan pertanyaan yang akan dijawab
+                    vector<Question> temp = manager.getQuestionQueue().getAllElements();
+                    if (!temp.empty()) {
+                        cout << "\nPertanyaan berikut akan dijawab:\n";
+                        cout << "Dari: " << temp.front().name << endl;
+                        cout << "Pertanyaan: " << temp.front().question << endl;
+                    }
                     manager.answerQuestion();
                 } else if (sub == 3) {
                     manager.showAnsweredQuestions();
@@ -835,10 +875,10 @@ int main() {
                          cout << "Antrian pertanyaan kosong.\n";
                          continue;
                     }
-                    vector<string> temp = manager.getQuestionQueue().getAllElements();
+                    vector<Question> temp = manager.getQuestionQueue().getAllElements();
                     cout << "\nDaftar Pertanyaan dalam Antrian (dari depan):\n";
                     for (size_t i = 0; i < temp.size(); ++i) {
-                        cout << i + 1 << ". " << temp[i] << endl;
+                        cout << i + 1 << ". " << temp[i].name << " : " << temp[i].question << endl;
                     }
                     int idx;
                     cout << "Masukkan nomor pertanyaan dalam antrian yang ingin dihapus (dari depan): ";
@@ -851,23 +891,28 @@ int main() {
                          cout << "Antrian pertanyaan kosong.\n";
                          continue;
                     }
-                    vector<string> temp = manager.getQuestionQueue().getAllElements();
+                    vector<Question> temp = manager.getQuestionQueue().getAllElements();
                     cout << "\nDaftar Pertanyaan dalam Antrian (dari depan):\n";
                     for (size_t i = 0; i < temp.size(); ++i) {
-                        cout << i + 1 << ". " << temp[i] << endl;
+                        cout << i + 1 << ". " << temp[i].name << " : " << temp[i].question << endl;
                     }
                     int idx;
-                    string newName;
+                    string newName, newQuestion;
                     cout << "Masukkan nomor pertanyaan dalam antrian yang ingin diupdate (dari depan): ";
                     cin >> idx;
                     if (cin.fail()) { cin.clear(); cin.ignore(numeric_limits<streamsize>::max(), '\n'); cout << "Input indeks tidak valid.\n"; continue;}
                     cin.ignore(numeric_limits<streamsize>::max(), '\n');
                     do {
-                        cout << "Masukkan nama/pertanyaan baru: "; // Klarifikasi prompt
+                        cout << "Masukkan nama peserta baru: ";
                         getline(cin, newName);
-                        if (newName.empty()) cout << "Input tidak boleh kosong!\n";
+                        if (newName.empty()) cout << "Nama tidak boleh kosong!\n";
                     } while (newName.empty());
-                    manager.updateQuestionInQueue(idx, newName);
+                    do {
+                        cout << "Masukkan kalimat pertanyaan baru: ";
+                        getline(cin, newQuestion);
+                        if (newQuestion.empty()) cout << "Pertanyaan tidak boleh kosong!\n";
+                    } while (newQuestion.empty());
+                    manager.updateQuestionInQueue(idx, newName, newQuestion);
                 } else if (sub == 8) {
                     break;
                 } else {
