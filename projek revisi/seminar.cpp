@@ -923,10 +923,11 @@ int main() {
             while (true) {
                 cout << "\n=== MENU JADWAL SEMINAR ===\n";
                 cout << "1. Tambah Jadwal Seminar\n";
-                cout << "2. Undo Jadwal Seminar (Hapus Terakhir Ditambah)\n";
-                cout << "3. Hapus Jadwal Seminar (Berdasarkan Pilihan)\n";
+                cout << "2. Undo Jadwal Seminar\n";
+                cout << "3. Hapus Jadwal Seminar\n";
                 cout << "4. Update Jadwal Seminar\n";
-                cout << "5. Kembali ke Menu Utama\n";
+                cout << "5. Lihat Daftar Jadwal Seminar\n";
+                cout << "6. Kembali ke Menu Utama\n";
                 cout << "Pilih menu: ";
                 int sub;
                 cin >> sub;
@@ -999,7 +1000,17 @@ int main() {
                         if (newTopic.empty()) cout << "Topik tidak boleh kosong!\n";
                     } while (newTopic.empty());
                     manager.updateSchedule(idx, newDate, newTopic);
-                } else if (sub == 5) {
+                } else if (sub == 5) { // Lihat Daftar Jadwal Seminar
+                    vector<pair<string, string>> temp = manager.getHistory().getAllElements();
+                    if (temp.empty()) {
+                        cout << "Belum ada jadwal seminar yang terdaftar.\n";
+                    } else {
+                        cout << "\nDaftar Jadwal Seminar (dari yang paling lama ditambahkan):\n";
+                        for (size_t i = 0; i < temp.size(); ++i) {
+                            cout << i + 1 << ". Tanggal: " << temp[i].first << " - Topik: " << temp[i].second << endl;
+                        }
+                    }
+                } else if (sub == 6) {
                     break;
                 } else {
                     cout << "Pilihan tidak valid.\n";
